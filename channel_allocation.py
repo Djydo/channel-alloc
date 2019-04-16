@@ -6,6 +6,7 @@ import sys
 from datetime import datetime
 import os
 import cPickle
+import pandas as pd
 
 
 class ChannelAllocation:
@@ -58,6 +59,7 @@ class ChannelAllocation:
         if not os.path.exists("./spectral_data"):
             os.mkdir("./spectral_data")
 
+        # self.ctl_file = '%s/spectral_scan_ctl' % self.debugfs_dir
         self.set_band(self.band_idx)
         self.dump_to_file = False
         self.dump_file = None
@@ -69,11 +71,18 @@ class ChannelAllocation:
             scanner.stop()
             scanner.file_reader.stop()
 
+    def write_data(self, fname, content):
+        content.to_csv(fname, index=False, header=False)
+
     def get_data(self):
 
         for scanner in self.scanners:
             if scanner.file_reader.sample_queue.empty():
                 continue
+
+            current_cf = self.bands[0][0]
+            count = scanner.sample_count
+
             while not scanner.file_reader.sample_queue.empty():
                 ts, xydata = scanner.file_reader.sample_queue.get()
                 if self.dump_to_file:
@@ -82,9 +91,21 @@ class ChannelAllocation:
                 for (tsf, freq_cf, noise, rssi, pwr) in SpectrumFileReader.decode(xydata):
                     print('centre frequency: {}'.format(scanner.freq_to_chan(int(freq_cf))))
                     sc_pwr = []
-                    for freq_sc, sigval in sorted(pwr.iteritems()):
-                        sc_pwr.append(sigval)
-                    print sc_pwr
+                    if count < scanner.sample_count and current_cf == freq_cf:
+                        for freq_sc, sigval in sorted(pwr.iteritems()):
+                            sc_pwr.append(sigval)
+                        s = pd.Series(sc_pwr, index=df.columns)
+                        df = df.append(s, ignore_index=True)
+                    else:
+                        count = scanner.sample_count
+
+                        for freq_sc, sigval in sorted(pwr.iteritems()):
+                            sc_pwr.append(sigval)
+                        df = pd.DataFrame(sc_pwr).T
+                    count -= 1
+                    current_cf = freq_cf
+                self.write_data("./spectral_data/" + str(current_cf)+".csv", df)
+
 
                         # if freq_sc not in hmp or self.hmp_gen_tbl.get(freq_sc, 0) < self.hmp_gen:
                         #     hmp[freq_sc] = {}
@@ -99,15 +120,14 @@ class ChannelAllocation:
                         # if sigval > mpf[freq_sc] or self.mpf_gen_tbl.get(freq_sc, 0) < self.mpf_gen:
                         #     mpf[freq_sc] = sigval
                         #     self.mpf_gen_tbl[freq_sc] = self.mpf_gen
-                        #
-            self.last_x = freq_cf
+
+                # self.last_x = freq_cf
 
     def main(self):
         for scanner in self.scanners:
             scanner.start()   # launches scanner (scanner.scan) in the threadself.cleanup()
             self.get_data()
         self.cleanup()
-
 
 
 if __name__ == '__main__':
