@@ -3,7 +3,7 @@ import struct
 import time
 import threading
 import math
-from Queue import Queue
+from queue import Queue
 from datetime import datetime
 
 # FIXME: add support for 5MHz + 10MHz wide channel?
@@ -12,9 +12,9 @@ from datetime import datetime
 class SpectrumFileReader(object):
 
     def __init__(self, path):
-        self.fp = file(path)
+        self.fp = open(path, 'rb')
         if not self.fp:
-            print "Cant open file '%s'" % path
+            print("Cant open file '%s'" % path)
             raise
         self.sample_queue = Queue()
         self.reader_thread = threading.Thread(target=self.read_samples_thread, args=())
@@ -71,7 +71,7 @@ class SpectrumFileReader(object):
             if not ((stype == 1 and slen == SpectrumFileReader.type1_pktsize) or
                     (stype == 2 and slen == SpectrumFileReader.type2_pktsize) or
                     (stype == 3 and slen == SpectrumFileReader.type3_pktsize)):
-                print "skip malformed packet"
+                print("skip malformed packet")
                 break  # header malformed, discard data. This event is very unlikely (once in ~3h)
                 # On the other hand, if we buffer the sample in a primitive way, we consume to much cpu
                 # for only one or too "rescued" samples every 2-3 hours
@@ -155,7 +155,7 @@ class SpectrumFileReader(object):
                 elif chantype == 3:  # NL80211_CHAN_HT40PLUS
                     freq += 10
                 else:
-                    print "got unknown chantype: %d" % chantype
+                    print("got unknown chantype: %d" % chantype)
                     raise
 
                 first_sc = freq - SpectrumFileReader.sc_wide * (sc_total/2 + 0.5)

@@ -1,11 +1,11 @@
 from scanner import Scanner
 from spectrum_file import SpectrumFileReader
-import signal
-from math import ceil
+from sklearn.decomposition import PCA
+import numpy as np
+import matplotlib.pyplot as plt
 import sys
-from datetime import datetime
 import os
-import cPickle
+import _pickle as cPickle
 import pandas as pd
 
 
@@ -82,7 +82,6 @@ class ChannelAllocation:
 
             current_cf = self.bands[0][0]
             count = scanner.sample_count
-
             while not scanner.file_reader.sample_queue.empty():
                 ts, xydata = scanner.file_reader.sample_queue.get()
                 if self.dump_to_file:
@@ -98,40 +97,59 @@ class ChannelAllocation:
                         df = df.append(s, ignore_index=True)
                     else:
                         count = scanner.sample_count
-
                         for freq_sc, sigval in sorted(pwr.iteritems()):
                             sc_pwr.append(sigval)
                         df = pd.DataFrame(sc_pwr).T
                     count -= 1
                     current_cf = freq_cf
-                self.write_data("./spectral_data/" + str(current_cf)+".csv", df)
+                self.write_data("./spectral_data/" + str(current_cf) + ".csv", df)
 
+    def get_pca(self, data):
+        pca = PCA.fit(data)
+        return pca
 
-                        # if freq_sc not in hmp or self.hmp_gen_tbl.get(freq_sc, 0) < self.hmp_gen:
-                        #     hmp[freq_sc] = {}
-                        #     self.hmp_gen_tbl[freq_sc] = self.hmp_gen
-                        #
-                        # arr = hmp[freq_sc]
-                        # mody = ceil(sigval*2.0)/2.0
-                        # arr.setdefault(mody, 0)
-                        # arr[mody] += 1.0
-                        #
-                        # mpf.setdefault(freq_sc, 0)
-                        # if sigval > mpf[freq_sc] or self.mpf_gen_tbl.get(freq_sc, 0) < self.mpf_gen:
-                        #     mpf[freq_sc] = sigval
-                        #     self.mpf_gen_tbl[freq_sc] = self.mpf_gen
-
-                # self.last_x = freq_cf
+    def get_entropy(self, data):
+        # https://www.hdm-stuttgart.de/~maucher/Python/MMCodecs/html/basicFunctions.html
+        entropy = []
+        for _, row_data in data.iterrows():
+            items = len(row_data)
+            sym_set = list(set(row_data))
+            prop = [np.size(row_data[row_data == i]) / (1.0 * items) for i in sym_set]
+            entr = np.sum([p * np.log2(1.0 / p) for p in prop])
+            entropy.append(entr)
+        return entropy
 
     def main(self):
-        for scanner in self.scanners:
-            scanner.start()   # launches scanner (scanner.scan) in the threadself.cleanup()
-            self.get_data()
+        # for scanner in self.scanners:
+        #     scanner.start()   # launches scanner (scanner.scan) in the threadself.cleanup()
+        #     self.get_data()
+        # self.cleanup()
+
+        dtframe = pd.read_csv("spectral_data/2412.csv")
+        entr = self.get_entropy(dtframe)
+        print("entropy: {}".format(entr))
+
+        # get a preview of number of components that would suffice
+        pca = PCA(6).fit(dtframe)
+
+        # plt.plot(np.cumsum(pca.explained_variance_ratio_))
+        # plt.xlabel('number of components')
+        # plt.ylabel('cumulative explained variance')
+
+        pca_projected = pca.fit_transform(dtframe)
+        data = pd.DataFrame(pca_projected)
+        pca_entropy = self.get_entropy(data)
+        # print(pca_projected)
+        # print(data)
+        print(pca_entropy)
+
         self.cleanup()
+
 
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        print "\nUsage: \n  $ sudo python channel_alloc.py wlanX [wlanY] [wlanZ] [wlanA]\n"
+        print("\nUsage: \n  $ sudo python channel_alloc.py wlanX [wlanY] [wlanZ] [wlanA]\n")
         exit(0)
     ChannelAllocation(sys.argv[1:]).main()
+
