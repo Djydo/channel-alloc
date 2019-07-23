@@ -102,10 +102,6 @@ class ChannelAllocation:
                     current_cf = freq_cf
                 self.write_data("./spectral_data/" + str(current_cf) + ".csv", df)
 
-    def get_pca(self, data):
-        pca = PCA.fit(data)
-        return pca
-
     def get_entropy(self, data):
         # https://www.hdm-stuttgart.de/~maucher/Python/MMCodecs/html/basicFunctions.html
         entropy = []
