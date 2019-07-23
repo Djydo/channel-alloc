@@ -1,8 +1,6 @@
 from scanner import Scanner
 from spectrum_file import SpectrumFileReader
-from sklearn.decomposition import PCA
 import numpy as np
-import matplotlib.pyplot as plt
 import sys
 import os
 import _pickle as cPickle
@@ -55,7 +53,7 @@ class ChannelAllocation:
             scanner.file_reader = reader
             self.scanners.append(scanner)
             idx += 1
-        self.dev_idx = 0  # id of currently selected device
+        self.dev_idx = 0
         if not os.path.exists("./spectral_data"):
             os.mkdir("./spectral_data")
 
@@ -91,13 +89,13 @@ class ChannelAllocation:
                     print('centre frequency: {}'.format(scanner.freq_to_chan(int(freq_cf))))
                     sc_pwr = []
                     if count < scanner.sample_count and current_cf == freq_cf:
-                        for freq_sc, sigval in sorted(pwr.iteritems()):
+                        for freq_sc, sigval in sorted(pwr.items()):
                             sc_pwr.append(sigval)
                         s = pd.Series(sc_pwr, index=df.columns)
                         df = df.append(s, ignore_index=True)
                     else:
                         count = scanner.sample_count
-                        for freq_sc, sigval in sorted(pwr.iteritems()):
+                        for freq_sc, sigval in sorted(pwr.items()):
                             sc_pwr.append(sigval)
                         df = pd.DataFrame(sc_pwr).T
                     count -= 1
@@ -111,7 +109,7 @@ class ChannelAllocation:
     def get_entropy(self, data):
         # https://www.hdm-stuttgart.de/~maucher/Python/MMCodecs/html/basicFunctions.html
         entropy = []
-        for _, row_data in data.iterrows():
+        for row_data in data.itertuples():
             items = len(row_data)
             sym_set = list(set(row_data))
             prop = [np.size(row_data[row_data == i]) / (1.0 * items) for i in sym_set]
@@ -124,27 +122,12 @@ class ChannelAllocation:
         #     scanner.start()   # launches scanner (scanner.scan) in the threadself.cleanup()
         #     self.get_data()
         # self.cleanup()
-
-        dtframe = pd.read_csv("spectral_data/2412.csv")
-        entr = self.get_entropy(dtframe)
-        print("entropy: {}".format(entr))
-
-        # get a preview of number of components that would suffice
-        pca = PCA(6).fit(dtframe)
-
-        # plt.plot(np.cumsum(pca.explained_variance_ratio_))
-        # plt.xlabel('number of components')
-        # plt.ylabel('cumulative explained variance')
-
-        pca_projected = pca.fit_transform(dtframe)
-        data = pd.DataFrame(pca_projected)
-        pca_entropy = self.get_entropy(data)
-        # print(pca_projected)
-        # print(data)
-        print(pca_entropy)
-
+        captures = sorted([f for f in os.listdir('./spectral_data')])
+        for ch in captures:
+            dtframe = pd.read_csv("spectral_data/"+str(ch), header=None)
+            entr = self.get_entropy(dtframe)
+            print("channel {0}: {1:5.2f}".format(ch, np.mean(entr)))
         self.cleanup()
-
 
 
 if __name__ == '__main__':
