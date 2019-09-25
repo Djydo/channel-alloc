@@ -1,0 +1,26 @@
+benchmark:
+   ACS: hostapd chosen channel
+   run iperf script for 3 different laptops -- get throughput at that channel from the three laptops, and save to textfile
+  
+  - get CSI data for all the present channels
+  - run effective BER for all the channels(change the return value of get_eff_snr to ber) 
+  - save return BER and SNR on each packet for different modulation scheme
+  - plot the graph BER vs SNR
+
+
+  sudo ping 192.168.1.1 -c 200 -i 0.02
+  sudo iw dev wlan0 scan | grep -E 'SSID'| sort | uniq |wc -l
+  sudo iw dev wlan0 scan | grep -E 'freq: 2'| sort | uniq |wc -l
+
+  sudo service network-manager stop;
+  sudo ./hostapd hostapd.conf
+
+  sudo ./recv_csi ~/Documents/data/ch_capture/sample7/ch11.dat
+  iperf3 -t 30 -c 192.168.1.1 | grep KBytes | awk '{ print $3"\t"$5"\t"$7"\t"$9 }' > ~/Documents/data/ch_capture/sample7/iperf_ch10.dat
+  
+  iperf -s -u 
+  iperf -c 192.168.1.1 -r -u -b 20m -t 30 -i 1
+ 
+  iperf3 -s
+  iperf3 -c 192.168.1.1 -R -u -b 20m -t 30 -i 1
+

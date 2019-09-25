@@ -1,0 +1,52 @@
+iw dev wlan0 survey dump
+iw dev wlan0 station dump
+iw dev wlan0 link
+
+iw dev wlan0 survey dump | grep -A 5 "in use"
+
+# start horst
+#---------------------
+sudo ifconfig wlan0 down
+iw wlan0 interface add mon0 type monitor
+sudo ifconfig wlan0 up
+sudo iw wlan0 set channel 6
+sudo timeout 8 horst -i mon0
+
+cat /proc/net/wireless
+ethtool -i wlan0
+
+# reset tx/rx NIC counters
+ifconfig wlan0 down
+modprobe -r ath9k or modprobe -r iwlwifi
+modprobe ath9k or modprobe iwlwifi
+ifconfig wlan0 up
+
+
+
+CH_DUMP="ch_use_temp"
+
+iw dev wlan0 survey dump | grep -A 5 "in use" > $CH_DUMP
+freq = $(echo $CH_DUMP | {awk '{/frequency/ printf $2}')
+ch_busy = $(echo $CH_DUMP | awk '{/channel active time/ printf $2}')
+ch_rx = $(echo $CH_DUMP | awk '{/channel active time/ printf $2}')
+ch_tx = $(echo $CH_DUMP | awk '{/channel receive time/ printf $2}')
+echo $freq, $ch_busy, $ch_rx, $ch_tx
+
+awk -f ./stats.awk $CH_DUMP > temp1
+
+
+
+
+#stats.awk
+BEGIN{
+FS=" "
+}
+{ 
+  freq = ${awk '{/frequency/ printf $2}'}
+  ch_busy = awk '{/channel active time/ printf $2}'
+  ch_rx = awk '{/channel active time/ printf $2}'
+  ch_tx = awk '{/channel receive time/ printf $2}'
+  printf $freq, $ch_busy, $ch_rx, $ch_tx
+}
+
+
